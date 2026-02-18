@@ -40,6 +40,7 @@ class MovrPlusViewModel: ObservableObject {
     @Published var showFlexFilenameInput: Bool = false
     @Published var showRetouchedVerification: Bool = false
     @Published var showManualArchiveVerification: Bool = false
+    @Published var showWorkflowSelection: Bool = false
     @Published var manualArchiveMessage: String = ""
     
     // Workflow data
@@ -233,6 +234,11 @@ class MovrPlusViewModel: ObservableObject {
         if !imageFiles.isEmpty {
             let urlsToPreload = Array(imageFiles.prefix(10).map { $0.originalURL })
             ThumbnailManager.shared.preloadThumbnails(for: urlsToPreload)
+        }
+        
+        // Show workflow selection if batch type not set and files were imported
+        if importedCount > 0 && selectedBatchType == nil {
+            showWorkflowSelection = true
         }
     }
     
@@ -825,7 +831,8 @@ class MovrPlusViewModel: ObservableObject {
                         try await archiveFile(
                             originalURL: file.originalURL,
                             newFilename: newFilename,
-                            archivePath: "Product Photographer/Master Images – Lifestyle"
+                            archivePath: "Product Photographer/Master Images – Lifestyle",
+                            itemNumber: file.description
                         )
                     } catch {
                         ProcessingLog.shared.logAction(
@@ -887,13 +894,24 @@ class MovrPlusViewModel: ObservableObject {
     private func archiveFile(
         originalURL: URL,
         newFilename: String,
-        archivePath: String
+        archivePath: String,
+        itemNumber: String? = nil
     ) async throws {
         let fileManager = FileManager.default
         
         // Archive to local path
         if !baseDestinationPath.isEmpty {
-            let archiveDir = URL(fileURLWithPath: baseDestinationPath).appendingPathComponent(archivePath)
+            var fullArchivePath = archivePath
+            
+            // If item number is provided, add subdirectory structure: {FirstLetter}/{LastTwoDigits}/
+            if let itemNum = itemNumber, !itemNum.isEmpty {
+                if let firstLetter = getFirstLetter(from: itemNum),
+                   let lastTwoDigits = getLastTwoDigits(from: itemNum) {
+                    fullArchivePath = "\(archivePath)/\(firstLetter)/\(lastTwoDigits)"
+                }
+            }
+            
+            let archiveDir = URL(fileURLWithPath: baseDestinationPath).appendingPathComponent(fullArchivePath)
             try fileManager.createDirectory(at: archiveDir, withIntermediateDirectories: true, attributes: nil)
             
             let archiveURL = archiveDir.appendingPathComponent(newFilename)
@@ -912,6 +930,19 @@ class MovrPlusViewModel: ObservableObject {
         }
     }
     
+    // Helper to get first letter from item number
+    private func getFirstLetter(from itemNumber: String) -> String? {
+        guard !itemNumber.isEmpty else { return nil }
+        return String(itemNumber.prefix(1).uppercased())
+    }
+    
+    // Helper to get last two digits from item number
+    private func getLastTwoDigits(from itemNumber: String) -> String? {
+        let digits = itemNumber.filter { $0.isNumber }
+        guard digits.count >= 2 else { return nil }
+        return String(digits.suffix(2))
+    }
+    
     private func archiveAndSendFile(
         originalURL: URL,
         newFilename: String,
@@ -922,7 +953,8 @@ class MovrPlusViewModel: ObservableObject {
         try await archiveFile(
             originalURL: originalURL,
             newFilename: newFilename,
-            archivePath: archivePath
+            archivePath: archivePath,
+            itemNumber: itemNumber
         )
         
         // Send to SMB network path - errors will propagate

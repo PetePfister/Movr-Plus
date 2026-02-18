@@ -1,5 +1,95 @@
 import SwiftUI
 
+// MARK: - Workflow Selection Dialog
+struct WorkflowSelectionDialog: View {
+    @Binding var isPresented: Bool
+    let onPDLifestyleLite: () -> Void
+    let onFoodShoot: () -> Void
+    let onNeither: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 24) {
+            Text("What type of images are these?")
+                .font(.title2)
+                .fontWeight(.semibold)
+            
+            Text("Select the workflow for this batch:")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            
+            HStack(spacing: 20) {
+                Button {
+                    isPresented = false
+                    onPDLifestyleLite()
+                } label: {
+                    VStack(spacing: 12) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 36))
+                            .foregroundColor(.blue)
+                        Text("PD Lifestyle Lite")
+                            .font(.headline)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(width: 150, height: 120)
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.blue, lineWidth: 2)
+                    )
+                }
+                .buttonStyle(.plain)
+                
+                Button {
+                    isPresented = false
+                    onFoodShoot()
+                } label: {
+                    VStack(spacing: 12) {
+                        Image(systemName: "fork.knife")
+                            .font(.system(size: 36))
+                            .foregroundColor(.green)
+                        Text("Food Shoot")
+                            .font(.headline)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(width: 150, height: 120)
+                    .background(Color.green.opacity(0.1))
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.green, lineWidth: 2)
+                    )
+                }
+                .buttonStyle(.plain)
+                
+                Button {
+                    isPresented = false
+                    onNeither()
+                } label: {
+                    VStack(spacing: 12) {
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 36))
+                            .foregroundColor(.orange)
+                        Text("Neither")
+                            .font(.headline)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(width: 150, height: 120)
+                    .background(Color.orange.opacity(0.1))
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.orange, lineWidth: 2)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(32)
+        .frame(width: 550)
+    }
+}
+
 // MARK: - Business Selector Dialog (QVC/HSN)
 struct BusinessSelectorDialog: View {
     @Binding var isPresented: Bool

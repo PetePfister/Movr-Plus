@@ -434,4 +434,21 @@ extension ImageFile {
         // For other cases, return nil to prompt user
         return nil
     }
+    
+    // Get first letter of item number for archive path
+    func getFirstLetterOfItemNumber() -> String? {
+        guard !description.isEmpty else { return nil }
+        return String(description.prefix(1).uppercased())
+    }
+    
+    // Get last two digits of item number for archive path
+    func getLastTwoDigitsOfItemNumber() -> String? {
+        guard !description.isEmpty else { return nil }
+        
+        // Extract just the numeric portion from the end
+        let digits = description.filter { $0.isNumber }
+        guard digits.count >= 2 else { return nil }
+        
+        return String(digits.suffix(2))
+    }
 }
