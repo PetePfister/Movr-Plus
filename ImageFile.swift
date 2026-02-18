@@ -396,19 +396,32 @@ extension ImageFile {
         return "\(nameWithoutExt)_R.\(ext)"
     }
     
-    // Extract camera count (last numeric sequence before extension)
-    // This looks for 3-4 digit sequences at the end of the filename
-    // Examples: "file_102.jpg" -> "102", "image_1234.jpg" -> "1234"
-    // Returns nil if no 3-4 digit sequence is found at the end
+    // Extract camera count (last underscore-separated numeric sequence before extension)
+    // This looks for numeric sequences separated by underscores
+    // Examples: "H123456_ABC_102.jpg" -> "102", "file_005.jpg" -> "005"
+    // Returns nil if no numeric sequence is found
     func extractCameraCount() -> String? {
         let nameWithoutExt = originalFilename.deletingPathExtension()
-        // Look for last sequence of digits (3-4 digits typically)
-        let pattern = "(\\d{3,4})$"
-        if let regex = try? NSRegularExpression(pattern: pattern, options: []),
-           let match = regex.firstMatch(in: nameWithoutExt, options: [], range: NSRange(location: 0, length: nameWithoutExt.count)),
-           let range = Range(match.range(at: 1), in: nameWithoutExt) {
-            return String(nameWithoutExt[range])
+        
+        // First try: Look for _R suffix and extract digits before it
+        if nameWithoutExt.hasSuffix("_R") {
+            let withoutR = String(nameWithoutExt.dropLast(2))
+            // Look for last underscore-separated numeric sequence
+            let components = withoutR.split(separator: "_")
+            if let lastComponent = components.last,
+               lastComponent.allSatisfy({ $0.isNumber }) {
+                return String(lastComponent)
+            }
         }
+        
+        // Second try: Look for last underscore-separated numeric sequence
+        let components = nameWithoutExt.split(separator: "_")
+        for component in components.reversed() {
+            if component.allSatisfy({ $0.isNumber }) {
+                return String(component)
+            }
+        }
+        
         return nil
     }
     

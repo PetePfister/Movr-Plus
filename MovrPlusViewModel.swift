@@ -813,13 +813,17 @@ class MovrPlusViewModel: ObservableObject {
                 }
                 
                 // Step 2: Extract camera count
-                // Default to "001" if no camera count found - this maintains consistency
-                // with expected filename format for flex files
-                let cameraCount = file.extractCameraCount() ?? "001"
+                let cameraCount = file.extractCameraCount()
                 
                 // Step 3: Rename using flex filename
                 let ext = (file.originalFilename as NSString).pathExtension
-                let newFilename = "\(workflowFlexFilename)_\(cameraCount).\(ext)"
+                let newFilename: String
+                if let count = cameraCount {
+                    newFilename = "\(workflowFlexFilename)_\(count).\(ext)"
+                } else {
+                    // No camera count found, omit it from filename
+                    newFilename = "\(workflowFlexFilename).\(ext)"
+                }
                 
                 // Step 4: Check for item number and archive if present
                 if file.description.isEmpty {
