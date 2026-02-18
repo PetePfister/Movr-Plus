@@ -3,12 +3,19 @@ import SwiftUI
 struct BatchTypeSelector: View {
     @ObservedObject var viewModel: MovrPlusViewModel
     
+    // Define grid layout with 3 columns
+    let columns = [
+        GridItem(.flexible()),
+        GridItem(.flexible()),
+        GridItem(.flexible())
+    ]
+    
     var body: some View {
         VStack(spacing: 16) {
             Text("Select Default Image Type for Batch")
                 .font(.headline)
             
-            HStack(spacing: 20) {
+            LazyVGrid(columns: columns, spacing: 20) {
                 ForEach(ImageType.allCases) { type in
                     Button {
                         viewModel.selectedBatchType = type
@@ -19,8 +26,10 @@ struct BatchTypeSelector: View {
                             
                             Text(type.rawValue)
                                 .fontWeight(.medium)
+                                .font(.caption)
+                                .multilineTextAlignment(.center)
                         }
-                        .frame(width: 120, height: 100)
+                        .frame(width: 140, height: 100)
                         .background(
                             RoundedRectangle(cornerRadius: 12)
                                 .fill(viewModel.selectedBatchType == type ? type.color.opacity(0.2) : Color.gray.opacity(0.1))
