@@ -652,7 +652,6 @@ class MovrPlusViewModel: ObservableObject {
         processingProgress = 0
         processingMessage = "Processing PD Lifestyle Lite files..."
         
-        let fileManager = FileManager.default
         let yymm = ImageFile.getCurrentYYMM()
         var successCount = 0
         var errorCount = 0
@@ -721,7 +720,6 @@ class MovrPlusViewModel: ObservableObject {
         processingProgress = 0
         processingMessage = "Processing Food Shoot files..."
         
-        let fileManager = FileManager.default
         let yymm = ImageFile.getCurrentYYMM()
         var successCount = 0
         var errorCount = 0
@@ -799,7 +797,6 @@ class MovrPlusViewModel: ObservableObject {
         processingProgress = 0
         processingMessage = "Processing Standard files..."
         
-        let fileManager = FileManager.default
         var successCount = 0
         var errorCount = 0
         var filesAwaitingManualArchive: [(file: ImageFile, renamedURL: URL)] = []
@@ -894,7 +891,6 @@ class MovrPlusViewModel: ObservableObject {
         } else {
             processingMessage = "✓ Standard: \(successCount) processed, \(errorCount) errors"
         }
-    }
     }
     
     func completeManualArchive() {
