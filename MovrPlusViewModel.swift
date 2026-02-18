@@ -50,7 +50,7 @@ class MovrPlusViewModel: ObservableObject {
     @Published var workflowProgress: Double = 0
     
     // Files awaiting send after manual archive confirmation
-    private var workflowFilesAwaitingSend: [(url: URL, filename: String)] = []
+    @Published var workflowFilesAwaitingSend: [(file: ImageFile, renamedURL: URL)] = []
     
     // Processing timestamp and user info - UPDATED
     private let username: String = "PetePfister"
@@ -802,7 +802,7 @@ class MovrPlusViewModel: ObservableObject {
         let fileManager = FileManager.default
         var successCount = 0
         var errorCount = 0
-        var filesAwaitingManualArchive: [(url: URL, filename: String)] = []
+        var filesAwaitingManualArchive: [(file: ImageFile, renamedURL: URL)] = []
         
         for (index, file) in imageFiles.enumerated() {
             processingProgress = Double(index) / Double(imageFiles.count)
@@ -831,7 +831,9 @@ class MovrPlusViewModel: ObservableObject {
                 // Step 4: Check for item number and archive if present
                 if file.description.isEmpty {
                     // Track files without item numbers for manual archiving
-                    filesAwaitingManualArchive.append((file.originalURL, newFilename))
+                    // Create URL for renamed file in same directory as original
+                    let renamedURL = file.originalURL.deletingLastPathComponent().appendingPathComponent(newFilename)
+                    filesAwaitingManualArchive.append((file, renamedURL))
                 } else {
                     // Archive with item number - errors will be caught and logged
                     do {
@@ -883,7 +885,7 @@ class MovrPlusViewModel: ObservableObject {
         // If files without item numbers were found, show manual archive dialog
         // User must confirm manual archiving before we send these files to SMB
         if !filesAwaitingManualArchive.isEmpty {
-            let filenames = filesAwaitingManualArchive.map { $0.filename }
+            let filenames = filesAwaitingManualArchive.map { $0.renamedURL.lastPathComponent }
             manualArchiveMessage = "No item number detected. Please manually archive \(filesAwaitingManualArchive.count) file(s) to People or Stock Photography:\n\n" + filenames.joined(separator: "\n")
             
             // Store files for later sending after manual archive confirmation
@@ -923,14 +925,14 @@ class MovrPlusViewModel: ObservableObject {
             
             do {
                 try await sendToSMB(
-                    originalURL: fileInfo.url,
-                    newFilename: fileInfo.filename
+                    originalURL: fileInfo.file.originalURL,
+                    newFilename: fileInfo.renamedURL.lastPathComponent
                 )
                 successCount += 1
             } catch {
                 ProcessingLog.shared.logAction(
                     action: "SMB Send Failed",
-                    filename: fileInfo.filename,
+                    filename: fileInfo.renamedURL.lastPathComponent,
                     result: "SMB send failed: \(error.localizedDescription)"
                 )
                 errorCount += 1
@@ -1232,6 +1234,32 @@ class MovrPlusViewModel: ObservableObject {
             return String(format: "%.1f MB", usedMB)
         } else {
             return "Unknown"
+        }
+    }
+    
+    // MARK: - Validation and Error Handling
+    
+    func getValidationReport() -> [String] {
+        var issues: [String] = []
+        
+        for file in imageFiles {
+            if file.description.isEmpty {
+                issues.append("\(file.originalFilename): Missing description")
+            }
+            if file.requestID.isEmpty {
+                issues.append("\(file.originalFilename): Missing request ID")
+            }
+            if file.newFilename.isEmpty {
+                issues.append("\(file.originalFilename): Cannot generate valid filename")
+            }
+        }
+        
+        return issues
+    }
+    
+    private func updateProcessingError(fileId: UUID, error: String) {
+        if let index = imageFiles.firstIndex(where: { $0.id == fileId }) {
+            imageFiles[index].processingError = error
         }
     }
 }
