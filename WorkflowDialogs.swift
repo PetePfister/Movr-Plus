@@ -80,7 +80,7 @@ struct CategoryInputDialog: View {
             Text("Enter Category")
                 .font(.headline)
             
-            Text("Item number doesn't match H, M, or K prefix.\nPlease enter the category:")
+            Text("The item number (product ID) doesn't start with H, M, or K.\nPlease enter the category code:")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)

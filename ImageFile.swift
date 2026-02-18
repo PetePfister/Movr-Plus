@@ -383,13 +383,23 @@ extension ImageFile {
     }
     
     // Add _R suffix to filename (before extension)
+    // Note: This checks for existing _R suffix to avoid duplicates
     func addRSuffix(_ filename: String) -> String {
         let nameWithoutExt = filename.deletingPathExtension()
+        
+        // Check if already has _R suffix
+        if nameWithoutExt.hasSuffix("_R") {
+            return filename // Already has _R, return as-is
+        }
+        
         let ext = (filename as NSString).pathExtension
         return "\(nameWithoutExt)_R.\(ext)"
     }
     
     // Extract camera count (last numeric sequence before extension)
+    // This looks for 3-4 digit sequences at the end of the filename
+    // Examples: "file_102.jpg" -> "102", "image_1234.jpg" -> "1234"
+    // Returns nil if no 3-4 digit sequence is found at the end
     func extractCameraCount() -> String? {
         let nameWithoutExt = originalFilename.deletingPathExtension()
         // Look for last sequence of digits (3-4 digits typically)
