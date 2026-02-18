@@ -181,7 +181,7 @@ struct ContentView: View {
                 isPresented: $viewModel.showCategoryInput,
                 category: $viewModel.workflowCategory,
                 onConfirm: {
-                    viewModel.continuePDLifestyleLiteWorkflow()
+                    viewModel.continuePDLifestyleLiteWithCategory()
                 }
             )
         }

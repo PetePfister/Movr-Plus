@@ -607,6 +607,31 @@ class MovrPlusViewModel: ObservableObject {
     }
     
     func continuePDLifestyleLiteWorkflow() {
+        // Check if we need to prompt for category for any files
+        var needsCategoryPrompt = false
+        
+        for file in imageFiles {
+            if !file.description.isEmpty {
+                let category = file.autoCategoryFromItemNumber()
+                if category == nil {
+                    needsCategoryPrompt = true
+                    break
+                }
+            }
+        }
+        
+        if needsCategoryPrompt {
+            // Show category input for files that need it
+            showCategoryInput = true
+        } else {
+            // All files have auto-detected categories, proceed
+            Task {
+                await processPDLifestyleLiteFiles()
+            }
+        }
+    }
+    
+    func continuePDLifestyleLiteWithCategory() {
         Task {
             await processPDLifestyleLiteFiles()
         }
@@ -631,11 +656,11 @@ class MovrPlusViewModel: ObservableObject {
                 // Step 2: Add _R suffix
                 let filenameWithR = file.addRSuffix(file.originalFilename)
                 
-                // Step 3: Auto-detect category or prompt
+                // Step 3: Auto-detect category or use user-provided category
                 var category = file.autoCategoryFromItemNumber()
-                if category == nil && !file.description.isEmpty {
-                    // Need to prompt for category - for now use a default
-                    category = "XX" // This would trigger the dialog in real implementation
+                if category == nil && !workflowCategory.isEmpty {
+                    // Use user-provided category from dialog
+                    category = workflowCategory
                 }
                 
                 // Step 4: Rename files
