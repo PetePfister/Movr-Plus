@@ -1232,32 +1232,6 @@ class MovrPlusViewModel: ObservableObject {
             return "Unknown"
         }
     }
-    
-    // MARK: - Validation and Error Handling
-    
-    func getValidationReport() -> [String] {
-        var issues: [String] = []
-        
-        for file in imageFiles {
-            if file.description.isEmpty {
-                issues.append("\(file.originalFilename): Missing description")
-            }
-            if file.requestID.isEmpty {
-                issues.append("\(file.originalFilename): Missing request ID")
-            }
-            if file.newFilename.isEmpty {
-                issues.append("\(file.originalFilename): Cannot generate valid filename")
-            }
-        }
-        
-        return issues
-    }
-    
-    private func updateProcessingError(fileId: UUID, error: String) {
-        if let index = imageFiles.firstIndex(where: { $0.id == fileId }) {
-            imageFiles[index].processingError = error
-        }
-    }
 }
 
 // Extension to safely access array elements
