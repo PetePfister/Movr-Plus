@@ -831,7 +831,8 @@ class MovrPlusViewModel: ObservableObject {
                 // Step 4: Check for item number and archive if present
                 if file.description.isEmpty {
                     // Track files without item numbers for manual archiving
-                    let renamedURL = URL(fileURLWithPath: newFilename)
+                    // Create URL for renamed file in same directory as original
+                    let renamedURL = file.originalURL.deletingLastPathComponent().appendingPathComponent(newFilename)
                     filesAwaitingManualArchive.append((file, renamedURL))
                 } else {
                     // Archive with item number - errors will be caught and logged
