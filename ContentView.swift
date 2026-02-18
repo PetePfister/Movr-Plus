@@ -162,6 +162,58 @@ struct ContentView: View {
         } message: {
             Text(viewModel.errorMessage)
         }
+        .sheet(isPresented: $viewModel.showBusinessSelector) {
+            BusinessSelectorDialog(
+                isPresented: $viewModel.showBusinessSelector,
+                selectedBusiness: $viewModel.selectedWorkflowBusiness,
+                onConfirm: {
+                    // Continue workflow based on batch type
+                    if viewModel.selectedBatchType == .pdLifestyleLite {
+                        viewModel.continuePDLifestyleLiteWorkflow()
+                    } else if viewModel.selectedBatchType == .foodShoot {
+                        viewModel.continueFoodShootWorkflow()
+                    }
+                }
+            )
+        }
+        .sheet(isPresented: $viewModel.showCategoryInput) {
+            CategoryInputDialog(
+                isPresented: $viewModel.showCategoryInput,
+                category: $viewModel.workflowCategory,
+                onConfirm: {
+                    viewModel.continuePDLifestyleLiteWorkflow()
+                }
+            )
+        }
+        .sheet(isPresented: $viewModel.showFlexFilenameInput) {
+            FlexFilenameInputDialog(
+                isPresented: $viewModel.showFlexFilenameInput,
+                flexFilename: $viewModel.workflowFlexFilename,
+                onConfirm: {
+                    viewModel.continueStandardWorkflowWithFlexName()
+                }
+            )
+        }
+        .sheet(isPresented: $viewModel.showRetouchedVerification) {
+            RetouchedVerificationDialog(
+                isPresented: $viewModel.showRetouchedVerification,
+                onYes: {
+                    viewModel.continueStandardWorkflowWithR()
+                },
+                onNo: {
+                    viewModel.abortStandardWorkflow()
+                }
+            )
+        }
+        .sheet(isPresented: $viewModel.showManualArchiveVerification) {
+            ManualArchiveVerificationDialog(
+                isPresented: $viewModel.showManualArchiveVerification,
+                message: viewModel.manualArchiveMessage,
+                onVerified: {
+                    viewModel.completeManualArchive()
+                }
+            )
+        }
         .animation(.easeInOut(duration: 0.2), value: showingBatchControls)
         .overlay(
             // Enhanced toast with auto-dismiss

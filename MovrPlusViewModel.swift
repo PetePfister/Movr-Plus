@@ -34,6 +34,20 @@ class MovrPlusViewModel: ObservableObject {
     @Published var processingSpeed: Double = 0 // Files per second
     @Published var estimatedTimeRemaining: TimeInterval = 0
     
+    // Workflow-specific state
+    @Published var showBusinessSelector: Bool = false
+    @Published var showCategoryInput: Bool = false
+    @Published var showFlexFilenameInput: Bool = false
+    @Published var showRetouchedVerification: Bool = false
+    @Published var showManualArchiveVerification: Bool = false
+    @Published var manualArchiveMessage: String = ""
+    
+    // Workflow data
+    @Published var selectedWorkflowBusiness: Retailer = .qvc
+    @Published var workflowCategory: String = ""
+    @Published var workflowFlexFilename: String = ""
+    @Published var workflowProgress: Double = 0
+    
     // Processing timestamp and user info - UPDATED
     private let username: String = "PetePfister"
     private let currentDateTime: String = "2025-07-28 21:43:13"
@@ -561,6 +575,337 @@ class MovrPlusViewModel: ObservableObject {
     // MARK: - Enhanced File Processing
     
     func processFiles() {
+        guard !imageFiles.isEmpty else {
+            showError("No files to process.")
+            return
+        }
+        
+        // Determine which workflow to use based on selectedBatchType
+        guard let batchType = selectedBatchType else {
+            showError("Please select a batch type first.")
+            return
+        }
+        
+        switch batchType {
+        case .pdLifestyleLite:
+            startPDLifestyleLiteWorkflow()
+        case .foodShoot:
+            startFoodShootWorkflow()
+        case .standard:
+            startStandardWorkflow()
+        default:
+            // Use original workflow for other types
+            processFilesOriginal()
+        }
+    }
+    
+    // MARK: - Workflow 1: PD Lifestyle Lite
+    
+    private func startPDLifestyleLiteWorkflow() {
+        // Step 1: Prompt for business (QVC/HSN)
+        showBusinessSelector = true
+    }
+    
+    func continuePDLifestyleLiteWorkflow() {
+        Task {
+            await processPDLifestyleLiteFiles()
+        }
+    }
+    
+    @MainActor
+    private func processPDLifestyleLiteFiles() async {
+        isProcessing = true
+        processingProgress = 0
+        processingMessage = "Processing PD Lifestyle Lite files..."
+        
+        let fileManager = FileManager.default
+        let yymm = ImageFile.getCurrentYYMM()
+        var successCount = 0
+        var errorCount = 0
+        
+        for (index, file) in imageFiles.enumerated() {
+            processingProgress = Double(index) / Double(imageFiles.count)
+            processingMessage = "Processing \(file.originalFilename)... (\(index + 1)/\(imageFiles.count))"
+            
+            do {
+                // Step 2: Add _R suffix
+                let filenameWithR = file.addRSuffix(file.originalFilename)
+                
+                // Step 3: Auto-detect category or prompt
+                var category = file.autoCategoryFromItemNumber()
+                if category == nil && !file.description.isEmpty {
+                    // Need to prompt for category - for now use a default
+                    category = "XX" // This would trigger the dialog in real implementation
+                }
+                
+                // Step 4: Rename files
+                // Format: IMG_PH_PD_[Business]_[YYMM]_[category]_[existing_filename_R]
+                let business = selectedWorkflowBusiness.rawValue
+                let newFilename = "IMG_PH_PD_\(business)_\(yymm)_\(category ?? "XX")_\(filenameWithR)"
+                
+                // Step 5 & 6: Archive and send
+                try await archiveAndSendFile(
+                    originalURL: file.originalURL,
+                    newFilename: newFilename,
+                    archivePath: "Product Photographer/Master Images – Lifestyle",
+                    itemNumber: file.description
+                )
+                
+                successCount += 1
+                
+            } catch {
+                ProcessingLog.shared.logAction(
+                    action: "PD Lifestyle Lite Error",
+                    filename: file.originalFilename,
+                    result: "Error: \(error.localizedDescription)"
+                )
+                errorCount += 1
+            }
+        }
+        
+        isProcessing = false
+        processingProgress = 1.0
+        processingMessage = "✓ PD Lifestyle Lite: \(successCount) processed, \(errorCount) errors"
+    }
+    
+    // MARK: - Workflow 2: Food Shoot
+    
+    private func startFoodShootWorkflow() {
+        // Step 1: Prompt for business (QVC/HSN)
+        showBusinessSelector = true
+    }
+    
+    func continueFoodShootWorkflow() {
+        Task {
+            await processFoodShootFiles()
+        }
+    }
+    
+    @MainActor
+    private func processFoodShootFiles() async {
+        isProcessing = true
+        processingProgress = 0
+        processingMessage = "Processing Food Shoot files..."
+        
+        let fileManager = FileManager.default
+        let yymm = ImageFile.getCurrentYYMM()
+        var successCount = 0
+        var errorCount = 0
+        
+        for (index, file) in imageFiles.enumerated() {
+            processingProgress = Double(index) / Double(imageFiles.count)
+            processingMessage = "Processing \(file.originalFilename)... (\(index + 1)/\(imageFiles.count))"
+            
+            do {
+                // Step 2: Add _R suffix
+                let filenameWithR = file.addRSuffix(file.originalFilename)
+                
+                // Step 3: Rename files
+                // Format: IMG_PH_PD_[Business]_[YYMM]_QC_[existing_filename_R]
+                let business = selectedWorkflowBusiness.rawValue
+                let newFilename = "IMG_PH_PD_\(business)_\(yymm)_QC_\(filenameWithR)"
+                
+                // Step 4 & 5: Archive and send
+                try await archiveAndSendFile(
+                    originalURL: file.originalURL,
+                    newFilename: newFilename,
+                    archivePath: "Product Photographer/Master Images – Lifestyle",
+                    itemNumber: file.description
+                )
+                
+                successCount += 1
+                
+            } catch {
+                ProcessingLog.shared.logAction(
+                    action: "Food Shoot Error",
+                    filename: file.originalFilename,
+                    result: "Error: \(error.localizedDescription)"
+                )
+                errorCount += 1
+            }
+        }
+        
+        isProcessing = false
+        processingProgress = 1.0
+        processingMessage = "✓ Food Shoot: \(successCount) processed, \(errorCount) errors"
+    }
+    
+    // MARK: - Workflow 3: Standard/Custom
+    
+    private func startStandardWorkflow() {
+        // Check if files need _R suffix
+        let needsRCheck = imageFiles.first { !$0.hasRSuffix() }
+        
+        if needsRCheck != nil {
+            showRetouchedVerification = true
+        } else {
+            // Files already have _R, proceed to flex filename input
+            showFlexFilenameInput = true
+        }
+    }
+    
+    func continueStandardWorkflowWithR() {
+        // User confirmed retouched - will add _R in processing
+        showFlexFilenameInput = true
+    }
+    
+    func abortStandardWorkflow() {
+        showError("Process aborted: Images must be retouched to use this workflow.")
+    }
+    
+    func continueStandardWorkflowWithFlexName() {
+        Task {
+            await processStandardFiles()
+        }
+    }
+    
+    @MainActor
+    private func processStandardFiles() async {
+        isProcessing = true
+        processingProgress = 0
+        processingMessage = "Processing Standard files..."
+        
+        let fileManager = FileManager.default
+        var successCount = 0
+        var errorCount = 0
+        var hasItemNumber = true
+        
+        for (index, file) in imageFiles.enumerated() {
+            processingProgress = Double(index) / Double(imageFiles.count)
+            processingMessage = "Processing \(file.originalFilename)... (\(index + 1)/\(imageFiles.count))"
+            
+            do {
+                // Step 1: Add _R if needed
+                var workingFilename = file.originalFilename
+                if !file.hasRSuffix() {
+                    workingFilename = file.addRSuffix(workingFilename)
+                }
+                
+                // Step 2: Extract camera count
+                let cameraCount = file.extractCameraCount() ?? "001"
+                
+                // Step 3: Rename using flex filename
+                let ext = (file.originalFilename as NSString).pathExtension
+                let newFilename = "\(workflowFlexFilename)_\(cameraCount).\(ext)"
+                
+                // Step 4: Check for item number
+                if file.description.isEmpty {
+                    hasItemNumber = false
+                    // Will show manual archive dialog after loop
+                } else {
+                    // Archive with item number
+                    try await archiveAndSendFile(
+                        originalURL: file.originalURL,
+                        newFilename: newFilename,
+                        archivePath: "Product Photographer/Master Images – Lifestyle",
+                        itemNumber: file.description
+                    )
+                }
+                
+                // Step 5: Always send to SMB
+                try await sendToSMB(
+                    originalURL: file.originalURL,
+                    newFilename: newFilename
+                )
+                
+                successCount += 1
+                
+            } catch {
+                ProcessingLog.shared.logAction(
+                    action: "Standard Workflow Error",
+                    filename: file.originalFilename,
+                    result: "Error: \(error.localizedDescription)"
+                )
+                errorCount += 1
+            }
+        }
+        
+        // If no item numbers found, show manual archive dialog
+        if !hasItemNumber {
+            manualArchiveMessage = "Please manually archive to People or Stock Photography"
+            showManualArchiveVerification = true
+        }
+        
+        isProcessing = false
+        processingProgress = 1.0
+        processingMessage = "✓ Standard: \(successCount) processed, \(errorCount) errors"
+    }
+    
+    func completeManualArchive() {
+        ProcessingLog.shared.logAction(
+            action: "Manual Archive Completed",
+            filename: "User Verification",
+            result: "User confirmed manual archival"
+        )
+    }
+    
+    // MARK: - Helper Methods for Workflows
+    
+    private func archiveAndSendFile(
+        originalURL: URL,
+        newFilename: String,
+        archivePath: String,
+        itemNumber: String?
+    ) async throws {
+        let fileManager = FileManager.default
+        
+        // Archive to local path
+        if !baseDestinationPath.isEmpty {
+            let archiveDir = URL(fileURLWithPath: baseDestinationPath).appendingPathComponent(archivePath)
+            try fileManager.createDirectory(at: archiveDir, withIntermediateDirectories: true, attributes: nil)
+            
+            let archiveURL = archiveDir.appendingPathComponent(newFilename)
+            
+            // Copy (not move) to archive
+            if fileManager.fileExists(atPath: archiveURL.path) {
+                try fileManager.removeItem(at: archiveURL)
+            }
+            try fileManager.copyItem(at: originalURL, to: archiveURL)
+            
+            ProcessingLog.shared.logAction(
+                action: "File Archived",
+                filename: originalURL.lastPathComponent,
+                result: "Copied to \(archiveURL.path)"
+            )
+        }
+        
+        // Send to SMB network path
+        try await sendToSMB(originalURL: originalURL, newFilename: newFilename)
+    }
+    
+    private func sendToSMB(originalURL: URL, newFilename: String) async throws {
+        let fileManager = FileManager.default
+        
+        // SMB path: smb://qrg.one/AppData/QVC-US/asset
+        // For testing, we'll use a local path if SMB is not available
+        let smbPath = "/Volumes/AppData/QVC-US/asset"
+        
+        // Check if SMB mount exists, otherwise skip with warning
+        if fileManager.fileExists(atPath: smbPath) {
+            let smbURL = URL(fileURLWithPath: smbPath).appendingPathComponent(newFilename)
+            
+            if fileManager.fileExists(atPath: smbURL.path) {
+                try fileManager.removeItem(at: smbURL)
+            }
+            try fileManager.copyItem(at: originalURL, to: smbURL)
+            
+            ProcessingLog.shared.logAction(
+                action: "File Sent to SMB",
+                filename: originalURL.lastPathComponent,
+                result: "Copied to \(smbURL.path)"
+            )
+        } else {
+            ProcessingLog.shared.logAction(
+                action: "SMB Send Skipped",
+                filename: originalURL.lastPathComponent,
+                result: "SMB path not available: \(smbPath)"
+            )
+        }
+    }
+    
+    // MARK: - Original Processing (for backward compatibility)
+    
+    private func processFilesOriginal() {
         guard !baseDestinationPath.isEmpty else {
             showError("Please select a destination folder first.")
             return

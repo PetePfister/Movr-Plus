@@ -4,6 +4,9 @@ enum ImageType: String, CaseIterable, Identifiable {
     case lifestyle = "Lifestyle"
     case product = "Product"
     case headshot = "Headshot"
+    case pdLifestyleLite = "PD Lifestyle Lite"
+    case foodShoot = "Food Shoot"
+    case standard = "Standard/Custom"
     
     var id: String { self.rawValue }
     
@@ -12,6 +15,9 @@ enum ImageType: String, CaseIterable, Identifiable {
         case .lifestyle: return "Lifestyle Images"
         case .product: return "Product Images"
         case .headshot: return "Headshots"
+        case .pdLifestyleLite: return "Product Photographer > Master Images – Lifestyle"
+        case .foodShoot: return "Product Photographer > Master Images – Lifestyle"
+        case .standard: return "Product Photographer > Master Images – Lifestyle"
         }
     }
     
@@ -20,6 +26,9 @@ enum ImageType: String, CaseIterable, Identifiable {
         case .lifestyle: return "photo.on.rectangle"
         case .product: return "cube"
         case .headshot: return "person.crop.rectangle"
+        case .pdLifestyleLite: return "sparkles"
+        case .foodShoot: return "fork.knife"
+        case .standard: return "gearshape"
         }
     }
     
@@ -28,6 +37,9 @@ enum ImageType: String, CaseIterable, Identifiable {
         case .lifestyle: return "LS"
         case .product: return "PR"
         case .headshot: return "HS"
+        case .pdLifestyleLite: return "PD"
+        case .foodShoot: return "QC"
+        case .standard: return "PD"
         }
     }
     

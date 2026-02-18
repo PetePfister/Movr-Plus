@@ -373,4 +373,55 @@ extension ImageFile {
             return file1.originalFilename < file2.originalFilename
         }
     }
+    
+    // MARK: - New Workflow Helpers
+    
+    // Check if filename ends with _R suffix (before extension)
+    func hasRSuffix() -> Bool {
+        let nameWithoutExt = originalFilename.deletingPathExtension()
+        return nameWithoutExt.hasSuffix("_R")
+    }
+    
+    // Add _R suffix to filename (before extension)
+    func addRSuffix(_ filename: String) -> String {
+        let nameWithoutExt = filename.deletingPathExtension()
+        let ext = (filename as NSString).pathExtension
+        return "\(nameWithoutExt)_R.\(ext)"
+    }
+    
+    // Extract camera count (last numeric sequence before extension)
+    func extractCameraCount() -> String? {
+        let nameWithoutExt = originalFilename.deletingPathExtension()
+        // Look for last sequence of digits (3-4 digits typically)
+        let pattern = "(\\d{3,4})$"
+        if let regex = try? NSRegularExpression(pattern: pattern, options: []),
+           let match = regex.firstMatch(in: nameWithoutExt, options: [], range: NSRange(location: 0, length: nameWithoutExt.count)),
+           let range = Range(match.range(at: 1), in: nameWithoutExt) {
+            return String(nameWithoutExt[range])
+        }
+        return nil
+    }
+    
+    // Generate YYMM date format from current date
+    static func getCurrentYYMM() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyMM"
+        return formatter.string(from: Date())
+    }
+    
+    // Auto-detect category based on item number first letter
+    func autoCategoryFromItemNumber() -> String? {
+        guard !description.isEmpty else { return nil }
+        
+        let firstChar = description.prefix(1).uppercased()
+        
+        if firstChar == "H" || firstChar == "M" {
+            return "HO"
+        } else if firstChar == "K" {
+            return "QC"
+        }
+        
+        // For other cases, return nil to prompt user
+        return nil
+    }
 }
