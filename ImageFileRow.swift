@@ -315,6 +315,26 @@ struct ImageFileRow: View {
                             .font(.caption)
                             .foregroundColor(.primary) // Using primary color instead of type color
                             .padding(.bottom, 2)
+                    case .pdLifestyleLite:
+                        Text("IMG_PH_PD_[Business]_[YYMM]_[Category]_[Filename_R]")
+                            .font(.caption)
+                            .foregroundColor(.primary)
+                            .padding(.bottom, 2)
+                    case .foodShoot:
+                        Text("IMG_PH_PD_[Business]_[YYMM]_QC_[Filename_R]")
+                            .font(.caption)
+                            .foregroundColor(.primary)
+                            .padding(.bottom, 2)
+                    case .standard:
+                        Text("Custom flex filename pattern")
+                            .font(.caption)
+                            .foregroundColor(.primary)
+                            .padding(.bottom, 2)
+                    @unknown default:
+                        Text("Pattern varies by type")
+                            .font(.caption)
+                            .foregroundColor(.primary)
+                            .padding(.bottom, 2)
                     }
                     
                     // New filename preview
