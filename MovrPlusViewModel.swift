@@ -49,6 +49,9 @@ class MovrPlusViewModel: ObservableObject {
     @Published var workflowFlexFilename: String = ""
     @Published var workflowProgress: Double = 0
     
+    // Files awaiting send after manual archive confirmation
+    private var workflowFilesAwaitingSend: [(url: URL, filename: String)] = []
+    
     // Processing timestamp and user info - UPDATED
     private let username: String = "PetePfister"
     private let currentDateTime: String = "2025-07-28 21:43:13"
@@ -799,7 +802,7 @@ class MovrPlusViewModel: ObservableObject {
         let fileManager = FileManager.default
         var successCount = 0
         var errorCount = 0
-        var filesWithoutItemNumber: [String] = []
+        var filesWithoutItemNumber: [(url: URL, filename: String)] = []
         
         for (index, file) in imageFiles.enumerated() {
             processingProgress = Double(index) / Double(imageFiles.count)
@@ -827,8 +830,8 @@ class MovrPlusViewModel: ObservableObject {
                 
                 // Step 4: Check for item number and archive if present
                 if file.description.isEmpty {
-                    // Track files without item numbers
-                    filesWithoutItemNumber.append(file.originalFilename)
+                    // Track files without item numbers for manual archiving
+                    filesWithoutItemNumber.append((file.originalURL, newFilename))
                 } else {
                     // Archive with item number - errors will be caught and logged
                     do {
@@ -845,21 +848,21 @@ class MovrPlusViewModel: ObservableObject {
                             result: "Archival failed but continuing: \(error.localizedDescription)"
                         )
                     }
-                }
-                
-                // Step 5: Always send to SMB (even if archive failed)
-                do {
-                    try await sendToSMB(
-                        originalURL: file.originalURL,
-                        newFilename: newFilename
-                    )
-                } catch {
-                    ProcessingLog.shared.logAction(
-                        action: "SMB Send Failed",
-                        filename: file.originalFilename,
-                        result: "SMB send failed: \(error.localizedDescription)"
-                    )
-                    throw error // Re-throw to be caught by outer handler
+                    
+                    // Step 5: Send to SMB (only for files with item numbers)
+                    do {
+                        try await sendToSMB(
+                            originalURL: file.originalURL,
+                            newFilename: newFilename
+                        )
+                    } catch {
+                        ProcessingLog.shared.logAction(
+                            action: "SMB Send Failed",
+                            filename: file.originalFilename,
+                            result: "SMB send failed: \(error.localizedDescription)"
+                        )
+                        throw error // Re-throw to be caught by outer handler
+                    }
                 }
                 
                 successCount += 1
@@ -874,15 +877,22 @@ class MovrPlusViewModel: ObservableObject {
             }
         }
         
-        // If files without item numbers were found, show manual archive dialog
-        if !filesWithoutItemNumber.isEmpty {
-            manualArchiveMessage = "Please manually archive \(filesWithoutItemNumber.count) file(s) to People or Stock Photography:\n" + filesWithoutItemNumber.joined(separator: "\n")
-            showManualArchiveVerification = true
-        }
-        
         isProcessing = false
         processingProgress = 1.0
-        processingMessage = "✓ Standard: \(successCount) processed, \(errorCount) errors"
+        
+        // If files without item numbers were found, show manual archive dialog
+        // User must confirm manual archiving before we send these files to SMB
+        if !filesWithoutItemNumber.isEmpty {
+            let filenames = filesWithoutItemNumber.map { $0.filename }
+            manualArchiveMessage = "No item number detected. Please manually archive \(filesWithoutItemNumber.count) file(s) to People or Stock Photography:\n\n" + filenames.joined(separator: "\n")
+            
+            // Store files for later sending after manual archive confirmation
+            workflowFilesAwaitingSend = filesWithoutItemNumber
+            showManualArchiveVerification = true
+        } else {
+            processingMessage = "✓ Standard: \(successCount) processed, \(errorCount) errors"
+        }
+    }
     }
     
     func completeManualArchive() {
@@ -891,6 +901,48 @@ class MovrPlusViewModel: ObservableObject {
             filename: "User Verification",
             result: "User confirmed manual archival"
         )
+        
+        // Send files that were waiting for manual archive confirmation
+        if !workflowFilesAwaitingSend.isEmpty {
+            Task {
+                await sendFilesAfterManualArchive()
+            }
+        }
+    }
+    
+    @MainActor
+    private func sendFilesAfterManualArchive() async {
+        isProcessing = true
+        processingMessage = "Sending files to SMB..."
+        
+        var successCount = 0
+        var errorCount = 0
+        
+        for (index, fileInfo) in workflowFilesAwaitingSend.enumerated() {
+            processingProgress = Double(index) / Double(workflowFilesAwaitingSend.count)
+            
+            do {
+                try await sendToSMB(
+                    originalURL: fileInfo.url,
+                    newFilename: fileInfo.filename
+                )
+                successCount += 1
+            } catch {
+                ProcessingLog.shared.logAction(
+                    action: "SMB Send Failed",
+                    filename: fileInfo.filename,
+                    result: "SMB send failed: \(error.localizedDescription)"
+                )
+                errorCount += 1
+            }
+        }
+        
+        isProcessing = false
+        processingProgress = 1.0
+        processingMessage = "✓ Standard: Sent \(successCount) files, \(errorCount) errors"
+        
+        // Clear the waiting files
+        workflowFilesAwaitingSend.removeAll()
     }
     
     // MARK: - Helper Methods for Workflows
