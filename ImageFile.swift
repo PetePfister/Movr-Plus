@@ -449,6 +449,7 @@ extension ImageFile {
     }
     
     // Get first letter of item number for archive path
+    // Note: Returns uppercase to ensure consistent directory naming (e.g., "H" not "h")
     func getFirstLetterOfItemNumber() -> String? {
         guard !description.isEmpty else { return nil }
         return String(description.prefix(1).uppercased())

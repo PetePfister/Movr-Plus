@@ -802,7 +802,7 @@ class MovrPlusViewModel: ObservableObject {
         let fileManager = FileManager.default
         var successCount = 0
         var errorCount = 0
-        var filesWithoutItemNumber: [(url: URL, filename: String)] = []
+        var filesAwaitingManualArchive: [(url: URL, filename: String)] = []
         
         for (index, file) in imageFiles.enumerated() {
             processingProgress = Double(index) / Double(imageFiles.count)
@@ -831,7 +831,7 @@ class MovrPlusViewModel: ObservableObject {
                 // Step 4: Check for item number and archive if present
                 if file.description.isEmpty {
                     // Track files without item numbers for manual archiving
-                    filesWithoutItemNumber.append((file.originalURL, newFilename))
+                    filesAwaitingManualArchive.append((file.originalURL, newFilename))
                 } else {
                     // Archive with item number - errors will be caught and logged
                     do {
@@ -882,12 +882,12 @@ class MovrPlusViewModel: ObservableObject {
         
         // If files without item numbers were found, show manual archive dialog
         // User must confirm manual archiving before we send these files to SMB
-        if !filesWithoutItemNumber.isEmpty {
-            let filenames = filesWithoutItemNumber.map { $0.filename }
-            manualArchiveMessage = "No item number detected. Please manually archive \(filesWithoutItemNumber.count) file(s) to People or Stock Photography:\n\n" + filenames.joined(separator: "\n")
+        if !filesAwaitingManualArchive.isEmpty {
+            let filenames = filesAwaitingManualArchive.map { $0.filename }
+            manualArchiveMessage = "No item number detected. Please manually archive \(filesAwaitingManualArchive.count) file(s) to People or Stock Photography:\n\n" + filenames.joined(separator: "\n")
             
             // Store files for later sending after manual archive confirmation
-            workflowFilesAwaitingSend = filesWithoutItemNumber
+            workflowFilesAwaitingSend = filesAwaitingManualArchive
             showManualArchiveVerification = true
         } else {
             processingMessage = "✓ Standard: \(successCount) processed, \(errorCount) errors"

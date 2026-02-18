@@ -299,12 +299,12 @@ struct ManualArchiveVerificationDialog: View {
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
             
-            Text("Please archive the files manually, then click Verified to continue.")
+            Text("Please archive the files manually, then click Complete to continue.")
                 .font(.caption)
                 .foregroundColor(.orange)
                 .multilineTextAlignment(.center)
             
-            Button("Verified - Continue") {
+            Button("Complete") {
                 isPresented = false
                 onVerified()
             }
