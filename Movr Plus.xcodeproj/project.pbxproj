@@ -113,7 +113,6 @@
 				A200001A000000000000001 /* Movr_Plus.entitlements */,
 				A5000004000000000000001 /* Preview Content */,
 			);
-			path = "Movr Plus";
 			sourceTree = "<group>";
 		};
 		A5000003000000000000001 /* Products */ = {
