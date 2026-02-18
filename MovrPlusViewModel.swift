@@ -40,6 +40,7 @@ class MovrPlusViewModel: ObservableObject {
     @Published var showFlexFilenameInput: Bool = false
     @Published var showRetouchedVerification: Bool = false
     @Published var showManualArchiveVerification: Bool = false
+    @Published var showWorkflowSelection: Bool = false
     @Published var manualArchiveMessage: String = ""
     
     // Workflow data
@@ -47,6 +48,9 @@ class MovrPlusViewModel: ObservableObject {
     @Published var workflowCategory: String = ""
     @Published var workflowFlexFilename: String = ""
     @Published var workflowProgress: Double = 0
+    
+    // Files awaiting send after manual archive confirmation
+    private var workflowFilesAwaitingSend: [(url: URL, filename: String)] = []
     
     // Processing timestamp and user info - UPDATED
     private let username: String = "PetePfister"
@@ -233,6 +237,11 @@ class MovrPlusViewModel: ObservableObject {
         if !imageFiles.isEmpty {
             let urlsToPreload = Array(imageFiles.prefix(10).map { $0.originalURL })
             ThumbnailManager.shared.preloadThumbnails(for: urlsToPreload)
+        }
+        
+        // Show workflow selection if batch type not set and files were imported
+        if importedCount > 0 && selectedBatchType == nil {
+            showWorkflowSelection = true
         }
     }
     
@@ -672,7 +681,7 @@ class MovrPlusViewModel: ObservableObject {
                 try await archiveAndSendFile(
                     originalURL: file.originalURL,
                     newFilename: newFilename,
-                    archivePath: "Product Photographer/Master Images – Lifestyle",
+                    archivePath: "Product Photography/Master Images - Lifestyle",
                     itemNumber: file.description
                 )
                 
@@ -734,7 +743,7 @@ class MovrPlusViewModel: ObservableObject {
                 try await archiveAndSendFile(
                     originalURL: file.originalURL,
                     newFilename: newFilename,
-                    archivePath: "Product Photographer/Master Images – Lifestyle",
+                    archivePath: "Product Photography/Master Images - Lifestyle",
                     itemNumber: file.description
                 )
                 
@@ -793,7 +802,7 @@ class MovrPlusViewModel: ObservableObject {
         let fileManager = FileManager.default
         var successCount = 0
         var errorCount = 0
-        var filesWithoutItemNumber: [String] = []
+        var filesAwaitingManualArchive: [(url: URL, filename: String)] = []
         
         for (index, file) in imageFiles.enumerated() {
             processingProgress = Double(index) / Double(imageFiles.count)
@@ -807,25 +816,30 @@ class MovrPlusViewModel: ObservableObject {
                 }
                 
                 // Step 2: Extract camera count
-                // Default to "001" if no camera count found - this maintains consistency
-                // with expected filename format for flex files
-                let cameraCount = file.extractCameraCount() ?? "001"
+                let cameraCount = file.extractCameraCount()
                 
                 // Step 3: Rename using flex filename
                 let ext = (file.originalFilename as NSString).pathExtension
-                let newFilename = "\(workflowFlexFilename)_\(cameraCount).\(ext)"
+                let newFilename: String
+                if let count = cameraCount {
+                    newFilename = "\(workflowFlexFilename)_\(count).\(ext)"
+                } else {
+                    // No camera count found, omit it from filename
+                    newFilename = "\(workflowFlexFilename).\(ext)"
+                }
                 
                 // Step 4: Check for item number and archive if present
                 if file.description.isEmpty {
-                    // Track files without item numbers
-                    filesWithoutItemNumber.append(file.originalFilename)
+                    // Track files without item numbers for manual archiving
+                    filesAwaitingManualArchive.append((file.originalURL, newFilename))
                 } else {
                     // Archive with item number - errors will be caught and logged
                     do {
                         try await archiveFile(
                             originalURL: file.originalURL,
                             newFilename: newFilename,
-                            archivePath: "Product Photographer/Master Images – Lifestyle"
+                            archivePath: "Product Photography/Master Images - Lifestyle",
+                            itemNumber: file.description
                         )
                     } catch {
                         ProcessingLog.shared.logAction(
@@ -834,21 +848,21 @@ class MovrPlusViewModel: ObservableObject {
                             result: "Archival failed but continuing: \(error.localizedDescription)"
                         )
                     }
-                }
-                
-                // Step 5: Always send to SMB (even if archive failed)
-                do {
-                    try await sendToSMB(
-                        originalURL: file.originalURL,
-                        newFilename: newFilename
-                    )
-                } catch {
-                    ProcessingLog.shared.logAction(
-                        action: "SMB Send Failed",
-                        filename: file.originalFilename,
-                        result: "SMB send failed: \(error.localizedDescription)"
-                    )
-                    throw error // Re-throw to be caught by outer handler
+                    
+                    // Step 5: Send to SMB (only for files with item numbers)
+                    do {
+                        try await sendToSMB(
+                            originalURL: file.originalURL,
+                            newFilename: newFilename
+                        )
+                    } catch {
+                        ProcessingLog.shared.logAction(
+                            action: "SMB Send Failed",
+                            filename: file.originalFilename,
+                            result: "SMB send failed: \(error.localizedDescription)"
+                        )
+                        throw error // Re-throw to be caught by outer handler
+                    }
                 }
                 
                 successCount += 1
@@ -863,15 +877,22 @@ class MovrPlusViewModel: ObservableObject {
             }
         }
         
-        // If files without item numbers were found, show manual archive dialog
-        if !filesWithoutItemNumber.isEmpty {
-            manualArchiveMessage = "Please manually archive \(filesWithoutItemNumber.count) file(s) to People or Stock Photography:\n" + filesWithoutItemNumber.joined(separator: "\n")
-            showManualArchiveVerification = true
-        }
-        
         isProcessing = false
         processingProgress = 1.0
-        processingMessage = "✓ Standard: \(successCount) processed, \(errorCount) errors"
+        
+        // If files without item numbers were found, show manual archive dialog
+        // User must confirm manual archiving before we send these files to SMB
+        if !filesAwaitingManualArchive.isEmpty {
+            let filenames = filesAwaitingManualArchive.map { $0.filename }
+            manualArchiveMessage = "No item number detected. Please manually archive \(filesAwaitingManualArchive.count) file(s) to People or Stock Photography:\n\n" + filenames.joined(separator: "\n")
+            
+            // Store files for later sending after manual archive confirmation
+            workflowFilesAwaitingSend = filesAwaitingManualArchive
+            showManualArchiveVerification = true
+        } else {
+            processingMessage = "✓ Standard: \(successCount) processed, \(errorCount) errors"
+        }
+    }
     }
     
     func completeManualArchive() {
@@ -880,6 +901,48 @@ class MovrPlusViewModel: ObservableObject {
             filename: "User Verification",
             result: "User confirmed manual archival"
         )
+        
+        // Send files that were waiting for manual archive confirmation
+        if !workflowFilesAwaitingSend.isEmpty {
+            Task {
+                await sendFilesAfterManualArchive()
+            }
+        }
+    }
+    
+    @MainActor
+    private func sendFilesAfterManualArchive() async {
+        isProcessing = true
+        processingMessage = "Sending files to SMB..."
+        
+        var successCount = 0
+        var errorCount = 0
+        
+        for (index, fileInfo) in workflowFilesAwaitingSend.enumerated() {
+            processingProgress = Double(index) / Double(workflowFilesAwaitingSend.count)
+            
+            do {
+                try await sendToSMB(
+                    originalURL: fileInfo.url,
+                    newFilename: fileInfo.filename
+                )
+                successCount += 1
+            } catch {
+                ProcessingLog.shared.logAction(
+                    action: "SMB Send Failed",
+                    filename: fileInfo.filename,
+                    result: "SMB send failed: \(error.localizedDescription)"
+                )
+                errorCount += 1
+            }
+        }
+        
+        isProcessing = false
+        processingProgress = 1.0
+        processingMessage = "✓ Standard: Sent \(successCount) files, \(errorCount) errors"
+        
+        // Clear the waiting files
+        workflowFilesAwaitingSend.removeAll()
     }
     
     // MARK: - Helper Methods for Workflows
@@ -887,13 +950,24 @@ class MovrPlusViewModel: ObservableObject {
     private func archiveFile(
         originalURL: URL,
         newFilename: String,
-        archivePath: String
+        archivePath: String,
+        itemNumber: String? = nil
     ) async throws {
         let fileManager = FileManager.default
         
         // Archive to local path
         if !baseDestinationPath.isEmpty {
-            let archiveDir = URL(fileURLWithPath: baseDestinationPath).appendingPathComponent(archivePath)
+            var fullArchivePath = archivePath
+            
+            // If item number is provided, add subdirectory structure: {FirstLetter}/{LastTwoDigits}/
+            if let itemNum = itemNumber, !itemNum.isEmpty {
+                if let firstLetter = getFirstLetter(from: itemNum),
+                   let lastTwoDigits = getLastTwoDigits(from: itemNum) {
+                    fullArchivePath = "\(archivePath)/\(firstLetter)/\(lastTwoDigits)"
+                }
+            }
+            
+            let archiveDir = URL(fileURLWithPath: baseDestinationPath).appendingPathComponent(fullArchivePath)
             try fileManager.createDirectory(at: archiveDir, withIntermediateDirectories: true, attributes: nil)
             
             let archiveURL = archiveDir.appendingPathComponent(newFilename)
@@ -912,6 +986,19 @@ class MovrPlusViewModel: ObservableObject {
         }
     }
     
+    // Helper to get first letter from item number
+    private func getFirstLetter(from itemNumber: String) -> String? {
+        guard !itemNumber.isEmpty else { return nil }
+        return String(itemNumber.prefix(1).uppercased())
+    }
+    
+    // Helper to get last two digits from item number
+    private func getLastTwoDigits(from itemNumber: String) -> String? {
+        let digits = itemNumber.filter { $0.isNumber }
+        guard digits.count >= 2 else { return nil }
+        return String(digits.suffix(2))
+    }
+    
     private func archiveAndSendFile(
         originalURL: URL,
         newFilename: String,
@@ -922,7 +1009,8 @@ class MovrPlusViewModel: ObservableObject {
         try await archiveFile(
             originalURL: originalURL,
             newFilename: newFilename,
-            archivePath: archivePath
+            archivePath: archivePath,
+            itemNumber: itemNumber
         )
         
         // Send to SMB network path - errors will propagate

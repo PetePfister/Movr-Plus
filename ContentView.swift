@@ -46,10 +46,8 @@ struct ContentView: View {
                 QuickStatsBar(viewModel: viewModel)
             }
             
-            // Batch Type Selector (before dropping files)
-            if viewModel.imageFiles.isEmpty {
-                BatchTypeSelector(viewModel: viewModel)
-            }
+            // Workflow selection will be shown in dialog when files are loaded
+            // (No pre-selection UI needed)
             
             // Batch Controls (when files exist)
             if !viewModel.imageFiles.isEmpty {
@@ -211,6 +209,20 @@ struct ContentView: View {
                 message: viewModel.manualArchiveMessage,
                 onVerified: {
                     viewModel.completeManualArchive()
+                }
+            )
+        }
+        .sheet(isPresented: $viewModel.showWorkflowSelection) {
+            WorkflowSelectionDialog(
+                isPresented: $viewModel.showWorkflowSelection,
+                onPDLifestyleLite: {
+                    viewModel.selectedBatchType = .pdLifestyleLite
+                },
+                onFoodShoot: {
+                    viewModel.selectedBatchType = .foodShoot
+                },
+                onNeither: {
+                    viewModel.selectedBatchType = .standard
                 }
             )
         }

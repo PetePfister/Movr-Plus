@@ -15,9 +15,9 @@ enum ImageType: String, CaseIterable, Identifiable {
         case .lifestyle: return "Lifestyle Images"
         case .product: return "Product Images"
         case .headshot: return "Headshots"
-        case .pdLifestyleLite: return "Product Photographer > Master Images – Lifestyle"
-        case .foodShoot: return "Product Photographer > Master Images – Lifestyle"
-        case .standard: return "Product Photographer > Master Images – Lifestyle"
+        case .pdLifestyleLite: return "Product Photography/Master Images - Lifestyle"
+        case .foodShoot: return "Product Photography/Master Images - Lifestyle"
+        case .standard: return "Product Photography/Master Images - Lifestyle"
         }
     }
     
