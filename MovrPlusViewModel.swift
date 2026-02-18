@@ -681,7 +681,7 @@ class MovrPlusViewModel: ObservableObject {
                 try await archiveAndSendFile(
                     originalURL: file.originalURL,
                     newFilename: newFilename,
-                    archivePath: "Product Photographer/Master Images – Lifestyle",
+                    archivePath: "Product Photography/Master Images - Lifestyle",
                     itemNumber: file.description
                 )
                 
@@ -743,7 +743,7 @@ class MovrPlusViewModel: ObservableObject {
                 try await archiveAndSendFile(
                     originalURL: file.originalURL,
                     newFilename: newFilename,
-                    archivePath: "Product Photographer/Master Images – Lifestyle",
+                    archivePath: "Product Photography/Master Images - Lifestyle",
                     itemNumber: file.description
                 )
                 
@@ -838,7 +838,7 @@ class MovrPlusViewModel: ObservableObject {
                         try await archiveFile(
                             originalURL: file.originalURL,
                             newFilename: newFilename,
-                            archivePath: "Product Photographer/Master Images – Lifestyle",
+                            archivePath: "Product Photography/Master Images - Lifestyle",
                             itemNumber: file.description
                         )
                     } catch {
